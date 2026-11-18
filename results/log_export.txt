@@ -1,0 +1,8 @@
+train 1,204,862 rows / 80 trips
+
+  logistic_regression      top1=0.8287 f1=0.8255 logloss=0.2389 (0.0 MB, fit 4s)
+  hist_gradient_boosting   top1=0.8501 f1=0.9144 logloss=0.1091 (0.8 MB, fit 23s)
+  random_forest            top1=0.8428 f1=0.8991 logloss=0.1486 (178.1 MB, fit 94s)
+
+wrote artifacts/models.json (3 models)
+default artifacts/model.pkl -> hist_gradient_boosting (Top-1 0.8501)

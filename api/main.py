@@ -42,6 +42,40 @@ app.add_middleware(
 
 _ARTIFACTS = {"model": None, "features": None, "hmm_cfg": None, "meta": {}}
 
+# Every exported model, loaded lazily and cached: {name: (estimator, features, meta)}
+_MODELS = {}
+_INDEX = {}
+MODELS_INDEX = "artifacts/models.json"
+
+
+def _load_index():
+    """Read artifacts/models.json - the list of models the evaluator can pick."""
+    global _INDEX
+    if os.path.exists(MODELS_INDEX):
+        import json
+        with open(MODELS_INDEX) as f:
+            _INDEX = json.load(f)
+    return _INDEX
+
+
+def _get_model(name: str):
+    """Load a named model, caching it after first use.
+
+    Lazy rather than eager: loading all five at startup costs memory and
+    time for models the evaluator may never select.
+    """
+    if name in _MODELS:
+        return _MODELS[name]
+    entry = _INDEX.get(name)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"unknown model {name}")
+    from src.models import load_final
+    bundle = load_final(entry["artifact"])
+    meta = {k: v for k, v in bundle.items() if k not in ("model", "features")}
+    _MODELS[name] = (bundle["model"], bundle["features"], meta)
+    print(f"[{datetime.now():%H:%M:%S}] loaded model: {name}")
+    return _MODELS[name]
+
 
 @app.on_event("startup")
 def load_artifacts():
@@ -62,6 +96,8 @@ def load_artifacts():
               f"student-test Top-1 {meta.get('student_test_top1', 0):.4f})")
     else:
         print(f"[{datetime.now():%H:%M:%S}] NO MODEL at {MODEL_PATH} - stage-1 passthrough mode")
+    _load_index()
+    print(f"[{datetime.now():%H:%M:%S}] selectable models: {list(_INDEX)}")
     print(f"[{datetime.now():%H:%M:%S}] trips available: {len(list_trips(DATA_DIR))}")
 
 
@@ -80,8 +116,35 @@ def trips():
     return {"trips": list_trips(DATA_DIR)}
 
 
-def predict_route(trip_id: str) -> dict:
+@app.get("/models")
+def models():
+    """Models the evaluator can choose between, best first.
+
+    Each entry carries its own measured student-test scores, so the UI can
+    show what it is choosing between rather than just names.
+    """
+    idx = _load_index()
+    ranked = sorted(idx.values(), key=lambda m: -m["student_test_top1"])
+    return {
+        "models": [{
+            "name": m["model_name"],
+            "family": m.get("family"),
+            "config": m.get("config"),
+            "student_test_top1": m["student_test_top1"],
+            "student_test_macro_f1": m.get("student_test_macro_f1"),
+            "student_test_log_loss": m.get("student_test_log_loss"),
+            "loaded": m["model_name"] in _MODELS,
+        } for m in ranked],
+        "default": ranked[0]["model_name"] if ranked else None,
+    }
+
+
+def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) -> dict:
     """Run one trip through the full prediction pipeline.
+
+    model_name selects among the exported models; None uses the startup
+    default. use_hmm toggles Viterbi decoding, so the evaluator can see the
+    classifier-only baseline and the decoded route side by side.
 
     Falls back to a passthrough echo of the raw GPS when no model artifact is
     present, so the two-laptop path stays demonstrable even without a model.
@@ -117,13 +180,17 @@ def predict_route(trip_id: str) -> dict:
     # --- real pipeline ---------------------------------------------------
     from src.candidates import generate_candidates, _trip_geometry
     from src.features import build_features
+    from src.hmm import viterbi
     from src.labels import align_route_to_track, UNLABELLED
     from src.metrics import route_continuity
     from src.viz import arcs_to_latlon_path
 
-    model = _ARTIFACTS["model"]
-    feature_cols = _ARTIFACTS["features"]
-    meta = _ARTIFACTS["meta"]
+    if model_name:
+        model, feature_cols, meta = _get_model(model_name)
+    else:
+        model = _ARTIFACTS["model"]
+        feature_cols = _ARTIFACTS["features"]
+        meta = _ARTIFACTS["meta"]
 
     geom = _trip_geometry(trip)
     cands = generate_candidates(trip, meta.get("radius_m", 50.0),
@@ -131,48 +198,67 @@ def predict_route(trip_id: str) -> dict:
     feats = build_features(trip, cands, geom=geom)
     feats["proba"] = model.predict_proba(feats[feature_cols])[:, 1]
 
-    # Argmax candidate per observation. Observations with no candidate keep -1.
+    n_obs = len(trip["track"])
+
+    # Classifier-only baseline: argmax per observation, no sequential reasoning.
     best = feats.loc[feats.groupby("obs_idx").proba.idxmax()].sort_values("obs_idx")
-    pred = np.full(len(trip["track"]), -1, dtype=np.int64)
-    pred[best.obs_idx.to_numpy()] = best.arc_id.to_numpy()
+    base = np.full(n_obs, -1, dtype=np.int64)
+    base[best.obs_idx.to_numpy()] = best.arc_id.to_numpy()
+
+    t_hmm = 0.0
+    if use_hmm:
+        t1 = time.time()
+        pred = viterbi(trip, feats[["obs_idx", "arc_id", "proba", "t_along"]],
+                       _ARTIFACTS["hmm_cfg"])
+        t_hmm = time.time() - t1
+    else:
+        pred = base
 
     # --- server-side scoring; ground truth never leaves this function ----
     truth = align_route_to_track(trip)
     scored = truth != UNLABELLED
-    top1 = float((pred[scored] == truth[scored]).mean()) if scored.any() else 0.0
-    continuity = route_continuity(trip, pred)
+
+    def acc(p):
+        return float((p[scored] == truth[scored]).mean()) if scored.any() else 0.0
 
     path = arcs_to_latlon_path(trip, [a for a in pred if a >= 0])
 
     return {
         "trip_id": trip_id,
-        "stage": "model",
+        "stage": "model+hmm" if use_hmm else "model",
         "model_name": meta.get("model_name"),
+        "model_family": meta.get("family"),
+        "hmm_enabled": use_hmm,
         "gps": gps,
         "predicted_path": path,
         "predicted_arcs": [int(a) for a in pred],
         "metrics": {
-            "top1_accuracy": round(top1, 4),
-            "route_continuity": round(continuity, 4),
-            "n_observations": len(gps),
+            "top1_accuracy": round(acc(pred), 4),
+            "route_continuity": round(route_continuity(trip, pred), 4),
+            "n_observations": n_obs,
             "n_scored": int(scored.sum()),
             "n_candidates": int(len(cands)),
+            "hmm_time_s": round(t_hmm, 3),
             "inference_time_s": round(time.time() - t0, 3),
         },
-        # Identical here because no decoder runs yet. Once Viterbi lands,
-        # top1_accuracy becomes the decoded route and this stays the
-        # independent per-observation argmax, making the gain visible.
-        "classifier_only": {"top1_accuracy": round(top1, 4)},
+        # Always the independent per-observation argmax, so the UI can show
+        # what Viterbi decoding actually bought on this trip.
+        "classifier_only": {
+            "top1_accuracy": round(acc(base), 4),
+            "route_continuity": round(route_continuity(trip, base), 4),
+        },
     }
 
 
 @app.post("/predict/{trip_id}")
-def predict(trip_id: str):
+def predict(trip_id: str, model: str = None, hmm: bool = True):
     t0 = time.time()
-    print(f"[{datetime.now():%H:%M:%S}] REQUEST  trip={trip_id}")
-    result = predict_route(trip_id)
+    print(f"[{datetime.now():%H:%M:%S}] REQUEST  trip={trip_id} "
+          f"model={model or 'default'} hmm={hmm}")
+    result = predict_route(trip_id, model_name=model, use_hmm=hmm)
     m = result["metrics"]
     print(f"[{datetime.now():%H:%M:%S}] DONE     trip={trip_id} "
+          f"model={result['model_name']} hmm={hmm} "
           f"top1={m['top1_accuracy']:.3f} cont={m['route_continuity']:.3f} "
           f"n={m['n_observations']} t={time.time() - t0:.2f}s")
     return result

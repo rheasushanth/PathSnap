@@ -46,7 +46,7 @@ CONFIG = {
     "knn": "k=25, weights=distance, scaled, fit on 50k subsample",
     "random_forest": "120 trees, min_samples_leaf=20, balanced_subsample",
     "hist_gradient_boosting": "max_iter=400, lr=0.05",
-    "mlp": "(64,32), early_stopping, scaled",
+    "mlp": "(64,32), early_stopping, scaled, fit on 300k subsample",
 }
 
 
@@ -116,7 +116,7 @@ def _continuity(df: pd.DataFrame, proba: np.ndarray, arcs_by_trip: dict) -> floa
 # Document this in the report: it is a real limitation of the algorithm for
 # this problem, not a measurement artefact, and it is part of why KNN is a
 # poor fit here regardless of its accuracy.
-FIT_SUBSAMPLE = {"knn": 50_000}
+FIT_SUBSAMPLE = {"knn": 50_000, "mlp": 300_000}
 
 
 def _subsample(name, idx, rng):

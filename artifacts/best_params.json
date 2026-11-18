@@ -1,0 +1,13 @@
+{
+  "model": "hist_gradient_boosting",
+  "params": {
+    "max_iter": 412,
+    "learning_rate": 0.03553923272480017,
+    "max_leaf_nodes": 154,
+    "min_samples_leaf": 167,
+    "l2_regularization": 9.153192414554304,
+    "max_bins": 218
+  },
+  "search_cv_top1": 0.8558411943025547,
+  "n_trials": 25
+}

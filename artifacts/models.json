@@ -1,0 +1,50 @@
+{
+  "logistic_regression": {
+    "model_name": "logistic_regression",
+    "family": "Linear / probabilistic",
+    "config": "C=1.0, class_weight=balanced, scaled",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 1204862,
+    "trained_trips": 80,
+    "student_test_top1": 0.8287102335057202,
+    "student_test_macro_f1": 0.8254522889913962,
+    "student_test_log_loss": 0.2388763725757599,
+    "fit_seconds": 4.4,
+    "inference_seconds": 0.04,
+    "artifact": "artifacts/model_logistic_regression.pkl",
+    "size_mb": 0.0
+  },
+  "hist_gradient_boosting": {
+    "model_name": "hist_gradient_boosting",
+    "family": "Boosting",
+    "config": "max_iter=400, lr=0.05",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 1204862,
+    "trained_trips": 80,
+    "student_test_top1": 0.8501279841195215,
+    "student_test_macro_f1": 0.914441961807542,
+    "student_test_log_loss": 0.10908055934014628,
+    "fit_seconds": 23.2,
+    "inference_seconds": 0.57,
+    "artifact": "artifacts/model_hist_gradient_boosting.pkl",
+    "size_mb": 0.8
+  },
+  "random_forest": {
+    "model_name": "random_forest",
+    "family": "Ensemble (bagging)",
+    "config": "120 trees, min_samples_leaf=20, balanced_subsample",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 1204862,
+    "trained_trips": 80,
+    "student_test_top1": 0.8427623674450191,
+    "student_test_macro_f1": 0.899086879184916,
+    "student_test_log_loss": 0.14860696021404532,
+    "fit_seconds": 94.4,
+    "inference_seconds": 0.54,
+    "artifact": "artifacts/model_random_forest.pkl",
+    "size_mb": 178.1
+  }
+}

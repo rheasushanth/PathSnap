@@ -30,3 +30,12 @@ wrote results/optuna_trials.csv (25 trials, 10519s)
 
 refitting tuned and untuned on ALL training trips...
   untuned  top1=0.8501 f1=0.9144 logloss=0.1091
+  tuned    top1=0.8495 f1=0.9156 logloss=0.1081
+
+variant  test_top1  test_macro_f1  test_log_loss  fit_s  inference_s
+untuned   0.850128       0.914442       0.109081   22.3         0.55
+  tuned   0.849501       0.915636       0.108116  170.1         2.36
+
+tuned - untuned Top-1: -0.0006
+wrote results/tuning_comparison.csv
+wrote artifacts/best_params.json

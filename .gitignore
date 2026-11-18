@@ -18,3 +18,5 @@ results/*.parquet
 *.log
 results/*.pkl
 results/api_log.txt
+artifacts/model_random_forest.pkl
+artifacts/model_knn.pkl

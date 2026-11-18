@@ -88,13 +88,53 @@ except Exception as e:
 if not trips:
     st.stop()
 
+# Models the API can serve. Showing each one's measured score next to its
+# name means the dropdown is self-explaining - the evaluator can see what
+# they are choosing between without reading the report.
+try:
+    model_info = requests.get(f"{api_url}/models", timeout=5).json()
+    model_list = model_info.get("models", [])
+except Exception:
+    model_list = []
+
+labels = {f"{m['name']}  (Top-1 {m['student_test_top1']:.4f})": m["name"]
+          for m in model_list}
+
 with col_b:
     trip_id = st.selectbox("Evaluation trip", trips)
 
+c1, c2 = st.columns([2, 1])
+with c1:
+    choice = st.selectbox(
+        "Model", list(labels) or ["(API default)"],
+        help="Scores shown are observation-level Top-1 on the 10 student-test trips",
+    )
+    model_name = labels.get(choice)
+with c2:
+    use_hmm = st.checkbox(
+        "HMM / Viterbi decoding", value=True,
+        help="Off = each GPS point classified independently. On = the whole "
+             "sequence decoded so consecutive roads must actually connect.",
+    )
+
+if model_list:
+    with st.expander("All models (student-test, held out)"):
+        st.dataframe(
+            [{"Model": m["name"], "Family": m.get("family"),
+              "Top-1": round(m["student_test_top1"], 4),
+              "Macro F1": round(m.get("student_test_macro_f1") or 0, 4),
+              "Log Loss": round(m.get("student_test_log_loss") or 0, 4),
+              "Config": m.get("config")} for m in model_list],
+            hide_index=True, use_container_width=True,
+        )
+
 if st.button("Run Prediction", type="primary"):
     t0 = time.time()
+    params = {"hmm": str(use_hmm).lower()}
+    if model_name:
+        params["model"] = model_name
     try:
-        resp = requests.post(f"{api_url}/predict/{trip_id}", timeout=120)
+        resp = requests.post(f"{api_url}/predict/{trip_id}", params=params, timeout=300)
         resp.raise_for_status()
         result = resp.json()
     except Exception as e:
@@ -108,11 +148,28 @@ if st.button("Run Prediction", type="primary"):
     c3.metric("Observations", m["n_observations"])
     c4.metric("Round trip", f"{time.time() - t0:.2f}s")
 
-    base = result.get("classifier_only", {}).get("top1_accuracy")
-    if base is not None:
-        delta = m["top1_accuracy"] - base
-        st.info(f"Classifier only: {base:.3f}  ->  Classifier + HMM/Viterbi: "
-                f"{m['top1_accuracy']:.3f}   (delta {delta:+.3f})")
+    st.caption(f"Model: **{result.get('model_name')}** "
+               f"({result.get('model_family', 'n/a')})  |  "
+               f"HMM decoding: **{'on' if result.get('hmm_enabled') else 'off'}**")
+
+    # The whole thesis of the project in one table: what sequential decoding
+    # bought on THIS trip, for both accuracy and physical plausibility.
+    base = result.get("classifier_only", {})
+    if base and result.get("hmm_enabled"):
+        st.markdown("**Effect of HMM/Viterbi decoding on this trip**")
+        st.dataframe([
+            {"Metric": "Top-1 accuracy",
+             "Classifier only": round(base.get("top1_accuracy", 0), 4),
+             "+ HMM/Viterbi": round(m["top1_accuracy"], 4),
+             "Change": round(m["top1_accuracy"] - base.get("top1_accuracy", 0), 4)},
+            {"Metric": "Route continuity",
+             "Classifier only": round(base.get("route_continuity", 0), 4),
+             "+ HMM/Viterbi": round(m["route_continuity"], 4),
+             "Change": round(m["route_continuity"] - base.get("route_continuity", 0), 4)},
+        ], hide_index=True, use_container_width=True)
+        if m.get("hmm_time_s"):
+            st.caption(f"Viterbi decode took {m['hmm_time_s']:.2f}s of the "
+                       f"{m['inference_time_s']:.2f}s total")
 
     if result.get("stage") == "passthrough":
         st.warning("API is in stage-1 passthrough mode - no model loaded yet. "
