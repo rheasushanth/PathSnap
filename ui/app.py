@@ -19,9 +19,38 @@ st.set_page_config(page_title="PathSnap", page_icon="*", layout="wide")
 st.title("PathSnap - Distributed Map-Matching & Route Reconstruction")
 st.caption("UE24CS352A Machine Learning | Laptop 2 (UI) -> Laptop 1 (API)")
 
+def normalise_url(raw: str) -> str:
+    """Accept '10.30.202.245:8000', 'http://host:8000/', or a bare host.
+
+    Typing the address without a scheme is the single most common demo-day
+    mistake - requests then raises 'No scheme supplied' and it reads like a
+    network failure when it is not. Default the port too, since the box is
+    always pointed at our own uvicorn.
+    """
+    raw = (raw or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    if not raw.startswith(("http://", "https://")):
+        raw = "http://" + raw
+    if ":" not in raw.split("//", 1)[1]:
+        raw += ":8000"
+    return raw
+
+
 default_url = st.session_state.get("api_url", "http://127.0.0.1:8000")
-api_url = st.text_input("API base URL (Laptop 1)", value=default_url).rstrip("/")
-st.session_state["api_url"] = api_url
+raw_url = st.text_input(
+    "API base URL (Laptop 1)",
+    value=default_url,
+    help="e.g. http://10.30.202.245:8000 - scheme and port are filled in if omitted",
+)
+api_url = normalise_url(raw_url)
+st.session_state["api_url"] = api_url or default_url
+
+if not api_url:
+    st.warning("Enter Laptop 1's address, e.g. http://10.30.202.245:8000")
+    st.stop()
+if api_url != raw_url.strip().rstrip("/"):
+    st.caption(f"Using `{api_url}`")
 
 col_a, col_b = st.columns([1, 3])
 
@@ -31,10 +60,24 @@ with col_a:
             r = requests.get(f"{api_url}/health", timeout=5)
             r.raise_for_status()
             st.success(r.json())
+        except requests.exceptions.ConnectionError:
+            st.error(f"Cannot reach {api_url}")
+            st.info(
+                "Work through these in order:\n\n"
+                "1. On Laptop 1, is uvicorn running with `--host 0.0.0.0`? "
+                "The default 127.0.0.1 only accepts local connections.\n"
+                "2. Re-check Laptop 1's IP with `ipconfig` - it is DHCP and changes.\n"
+                "3. Windows Firewall (admin PowerShell on Laptop 1):\n"
+                "   `New-NetFirewallRule -DisplayName \"PathSnap API 8000\" "
+                "-Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow`\n"
+                "4. Still failing? Campus Wi-Fi often blocks laptop-to-laptop "
+                "traffic entirely (client isolation). Switch both laptops to a "
+                "phone hotspot and use the new IP."
+            )
+        except requests.exceptions.Timeout:
+            st.error("API reachable but did not respond in time.")
         except Exception as e:
             st.error(f"Cannot reach API: {e}")
-            st.info("Laptop 1 must run uvicorn with --host 0.0.0.0, and "
-                    "Windows Firewall must allow inbound TCP 8000.")
 
 try:
     trips = requests.get(f"{api_url}/trips", timeout=5).json()["trips"]
