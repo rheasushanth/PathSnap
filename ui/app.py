@@ -79,8 +79,42 @@ with col_a:
         except Exception as e:
             st.error(f"Cannot reach API: {e}")
 
+# --- partition page ------------------------------------------------------
+# One API process serves both partitions and picks per request, so switching
+# to final evaluation needs no restart and no environment change on Laptop 1.
 try:
-    trips = requests.get(f"{api_url}/trips", timeout=5).json()["trips"]
+    parts = requests.get(f"{api_url}/partitions", timeout=5).json()["partitions"]
+except Exception:
+    parts = []
+
+page_names = {p["label"]: p for p in parts if p["available"]}
+if page_names:
+    page_label = st.sidebar.radio("Page", list(page_names))
+    part = page_names[page_label]
+    partition = part["name"]
+    st.sidebar.caption(f"{part['n_trips']} trips")
+    st.sidebar.info(part["note"])
+else:
+    partition = None
+    st.sidebar.warning("No partitions reported by the API")
+
+is_final = partition == "evaluator_test"
+if is_final:
+    st.subheader("Final Evaluation")
+    st.warning(
+        "Reserved evaluation partition. These trips were never used for "
+        "training, feature selection, hyperparameter search or threshold "
+        "choice. Ground-truth routes are read server-side only and are not "
+        "returned to this interface.",
+        icon=None,
+    )
+else:
+    st.subheader("Development")
+
+try:
+    trip_params = {"partition": partition} if partition else {}
+    trips = requests.get(f"{api_url}/trips", params=trip_params,
+                         timeout=5).json()["trips"]
 except Exception as e:
     st.warning(f"Could not load trip list: {e}")
     trips = []
@@ -140,6 +174,8 @@ if st.button("Run Prediction", type="primary"):
     params = {"hmm": str(use_hmm).lower()}
     if model_name:
         params["model"] = model_name
+    if partition:
+        params["partition"] = partition
     try:
         resp = requests.post(f"{api_url}/predict/{trip_id}", params=params, timeout=300)
         resp.raise_for_status()

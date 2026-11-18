@@ -26,9 +26,38 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.io_utils import list_trips, load_trip
 
-# Point this at the evaluator partition on demo day.
+# Both partitions are served by one process and selected per request, so
+# demo day needs no restart and no environment change - the evaluator just
+# switches page in the UI. DATA_DIR remains the default for calls that do
+# not name a partition.
+DATA_ROOT = os.environ.get("PATHSNAP_DATA_ROOT", "data")
 DATA_DIR = os.environ.get("PATHSNAP_DATA", "data/student_test")
 MODEL_PATH = os.environ.get("PATHSNAP_MODEL", "artifacts/model.pkl")
+
+PARTITIONS = {
+    "student_test": {
+        "label": "Development (student testing)",
+        "dir": "data/student_test",
+        "note": "Used during development for model comparison and decoder tuning.",
+    },
+    "evaluator_test": {
+        "label": "Final evaluation (evaluator testing)",
+        "dir": "data/evaluator_test",
+        "note": "Reserved for final evaluation. Never used for training, "
+                "feature selection, hyperparameter search or threshold choice.",
+    },
+}
+
+
+def _partition_dir(name: str = None) -> str:
+    """Resolve a partition name to its directory, defaulting to DATA_DIR."""
+    if not name:
+        return DATA_DIR
+    entry = PARTITIONS.get(name)
+    if entry is None or not os.path.isdir(entry["dir"]):
+        raise HTTPException(status_code=404,
+                            detail=f"partition '{name}' not available")
+    return entry["dir"]
 
 app = FastAPI(title="PathSnap API", version="1.0")
 
@@ -98,7 +127,11 @@ def load_artifacts():
         print(f"[{datetime.now():%H:%M:%S}] NO MODEL at {MODEL_PATH} - stage-1 passthrough mode")
     _load_index()
     print(f"[{datetime.now():%H:%M:%S}] selectable models: {list(_INDEX)}")
-    print(f"[{datetime.now():%H:%M:%S}] trips available: {len(list_trips(DATA_DIR))}")
+    for n, p in PARTITIONS.items():
+        ok = os.path.isdir(p["dir"])
+        print(f"[{datetime.now():%H:%M:%S}] partition {n}: "
+              f"{len(list_trips(p['dir'])) if ok else 0} trips"
+              f"{'' if ok else '  (not present)'}")
 
 
 @app.get("/health")
@@ -111,9 +144,26 @@ def health():
     }
 
 
+@app.get("/partitions")
+def partitions():
+    """Which trip partitions this server can serve, and how many trips each has."""
+    out = []
+    for name, p in PARTITIONS.items():
+        available = os.path.isdir(p["dir"])
+        out.append({
+            "name": name,
+            "label": p["label"],
+            "note": p["note"],
+            "available": available,
+            "n_trips": len(list_trips(p["dir"])) if available else 0,
+        })
+    return {"partitions": out, "default": os.path.basename(DATA_DIR)}
+
+
 @app.get("/trips")
-def trips():
-    return {"trips": list_trips(DATA_DIR)}
+def trips(partition: str = None):
+    return {"partition": partition or os.path.basename(DATA_DIR),
+            "trips": list_trips(_partition_dir(partition))}
 
 
 @app.get("/models")
@@ -157,7 +207,8 @@ def comparison():
     return {"columns": reader.fieldnames or [], "rows": rows}
 
 
-def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) -> dict:
+def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True,
+                  partition: str = None) -> dict:
     """Run one trip through the full prediction pipeline.
 
     model_name selects among the exported models; None uses the startup
@@ -167,7 +218,8 @@ def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) ->
     Falls back to a passthrough echo of the raw GPS when no model artifact is
     present, so the two-laptop path stays demonstrable even without a model.
     """
-    trip_dir = os.path.join(DATA_DIR, trip_id)
+    base = _partition_dir(partition)
+    trip_dir = os.path.join(base, trip_id)
     if not os.path.isdir(trip_dir):
         raise HTTPException(status_code=404, detail=f"unknown trip {trip_id}")
 
@@ -243,6 +295,7 @@ def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) ->
 
     return {
         "trip_id": trip_id,
+        "partition": partition or os.path.basename(DATA_DIR),
         "stage": "model+hmm" if use_hmm else "model",
         "model_name": meta.get("model_name"),
         "model_family": meta.get("family"),
@@ -269,13 +322,16 @@ def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) ->
 
 
 @app.post("/predict/{trip_id}")
-def predict(trip_id: str, model: str = None, hmm: bool = True):
+def predict(trip_id: str, model: str = None, hmm: bool = True,
+            partition: str = None):
     t0 = time.time()
-    print(f"[{datetime.now():%H:%M:%S}] REQUEST  trip={trip_id} "
+    part = partition or os.path.basename(DATA_DIR)
+    print(f"[{datetime.now():%H:%M:%S}] REQUEST  partition={part} trip={trip_id} "
           f"model={model or 'default'} hmm={hmm}")
-    result = predict_route(trip_id, model_name=model, use_hmm=hmm)
+    result = predict_route(trip_id, model_name=model, use_hmm=hmm,
+                           partition=partition)
     m = result["metrics"]
-    print(f"[{datetime.now():%H:%M:%S}] DONE     trip={trip_id} "
+    print(f"[{datetime.now():%H:%M:%S}] DONE     partition={part} trip={trip_id} "
           f"model={result['model_name']} hmm={hmm} "
           f"top1={m['top1_accuracy']:.3f} cont={m['route_continuity']:.3f} "
           f"n={m['n_observations']} t={time.time() - t0:.2f}s")
