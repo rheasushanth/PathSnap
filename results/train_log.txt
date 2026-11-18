@@ -14,3 +14,4 @@ train 1,204,862 rows / 80 trips | test 130,768 rows / 10 trips
   TEST macro_f1=0.8255  top1=0.8287  logloss=0.2389
 
 === random_forest ===
+  CV  macro_f1=0.9012  top1=0.8236

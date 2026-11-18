@@ -8,8 +8,12 @@ COORDINATE ORDER: raw files are (lon, lat). Folium wants [lat, lon].
 If your map lands in the Atlantic or Antarctica, this is why.
 """
 
-import folium
 import numpy as np
+
+# folium is imported lazily inside the plotting functions. The API imports
+# arcs_to_latlon_path from this module for its response geometry, and that
+# helper is pure Python - the inference laptop should not need a mapping
+# library installed just to serve a prediction.
 
 COLORS = {
     "gps": "#1f77b4",       # blue
@@ -50,7 +54,7 @@ def arcs_to_latlon_path(trip: dict, arc_ids) -> list:
 def plot_trip(trip: dict,
               pred_arcs=None,
               out_html: str = None,
-              max_network_arcs: int = 3000) -> folium.Map:
+              max_network_arcs: int = 3000):
     """Four-layer interactive map with LayerControl.
 
       1 raw GPS points      (blue circles)
@@ -60,6 +64,7 @@ def plot_trip(trip: dict,
 
     Returns the map; also writes it if out_html is given.
     """
+    import folium  # lazy: see module docstring
     raise NotImplementedError("A")
 
 
@@ -69,4 +74,5 @@ def plot_labels_debug(trip: dict, labels: np.ndarray, out_html: str = None):
     A correct alignment looks like a clean progression of colour bands along
     the road. Confetti means the DP is wrong.
     """
+    import folium  # lazy: see module docstring
     raise NotImplementedError("A")

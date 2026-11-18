@@ -1,0 +1,7 @@
+training logistic_regression on the full training partition
+  train 1,204,862 rows / 80 trips
+  fitted in 9.0s
+  student-test Top-1     0.8287
+  student-test Macro F1  0.8255
+  student-test Log Loss  0.2389
+  wrote artifacts/model.pkl

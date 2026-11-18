@@ -20,6 +20,7 @@ import os
 import time
 from datetime import datetime
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,7 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_ARTIFACTS = {"model": None, "features": None, "hmm_cfg": None}
+_ARTIFACTS = {"model": None, "features": None, "hmm_cfg": None, "meta": {}}
 
 
 @app.on_event("startup")
@@ -53,7 +54,12 @@ def load_artifacts():
         _ARTIFACTS["model"] = bundle["model"]
         _ARTIFACTS["features"] = bundle["features"]
         _ARTIFACTS["hmm_cfg"] = load_config()
-        print(f"[{datetime.now():%H:%M:%S}] model loaded: {MODEL_PATH}")
+        _ARTIFACTS["meta"] = {k: v for k, v in bundle.items()
+                              if k not in ("model", "features")}
+        meta = _ARTIFACTS["meta"]
+        print(f"[{datetime.now():%H:%M:%S}] model loaded: {meta.get('model_name')} "
+              f"({meta.get('trained_rows', 0):,} rows, "
+              f"student-test Top-1 {meta.get('student_test_top1', 0):.4f})")
     else:
         print(f"[{datetime.now():%H:%M:%S}] NO MODEL at {MODEL_PATH} - stage-1 passthrough mode")
     print(f"[{datetime.now():%H:%M:%S}] trips available: {len(list_trips(DATA_DIR))}")
@@ -75,17 +81,10 @@ def trips():
 
 
 def predict_route(trip_id: str) -> dict:
-    """The ONE function that changes between stage 1 and stage 2.
+    """Run one trip through the full prediction pipeline.
 
-    Stage 2 implementation (D wires this up at H+7:00):
-        trip  = load_trip(...)
-        cands = generate_candidates(trip, radius_m, k)
-        feats = build_features(trip, cands)
-        cands['proba'] = model.predict_proba(feats[FEATURE_COLS])[:, 1]
-        pred  = viterbi(trip, cands, hmm_cfg)
-        base  = classifier_only(cands)
-        true  = align_route_to_track(trip)        # server-side only
-        metrics from src.metrics.sequence_metrics
+    Falls back to a passthrough echo of the raw GPS when no model artifact is
+    present, so the two-laptop path stays demonstrable even without a model.
     """
     trip_dir = os.path.join(DATA_DIR, trip_id)
     if not os.path.isdir(trip_dir):
@@ -96,11 +95,13 @@ def predict_route(trip_id: str) -> dict:
     gps = [[float(lat), float(lon)] for lon, lat, _ in trip["track"]]
 
     if _ARTIFACTS["model"] is None:
-        # STAGE 1 passthrough: echo the GPS so the UI and network path can be
-        # verified end to end before the model exists.
+        # Passthrough: echo the GPS so the UI and network path can be verified
+        # end to end before a model exists. Metrics are zero because NOTHING
+        # was computed - not because a model scored zero.
         return {
             "trip_id": trip_id,
             "stage": "passthrough",
+            "model_name": None,
             "gps": gps,
             "predicted_path": gps,
             "predicted_arcs": [],
@@ -113,7 +114,56 @@ def predict_route(trip_id: str) -> dict:
             "classifier_only": {"top1_accuracy": 0.0},
         }
 
-    raise HTTPException(status_code=501, detail="stage-2 pipeline not wired up yet")
+    # --- real pipeline ---------------------------------------------------
+    from src.candidates import generate_candidates, _trip_geometry
+    from src.features import build_features
+    from src.labels import align_route_to_track, UNLABELLED
+    from src.metrics import route_continuity
+    from src.viz import arcs_to_latlon_path
+
+    model = _ARTIFACTS["model"]
+    feature_cols = _ARTIFACTS["features"]
+    meta = _ARTIFACTS["meta"]
+
+    geom = _trip_geometry(trip)
+    cands = generate_candidates(trip, meta.get("radius_m", 50.0),
+                                meta.get("k", 10), geom=geom)
+    feats = build_features(trip, cands, geom=geom)
+    feats["proba"] = model.predict_proba(feats[feature_cols])[:, 1]
+
+    # Argmax candidate per observation. Observations with no candidate keep -1.
+    best = feats.loc[feats.groupby("obs_idx").proba.idxmax()].sort_values("obs_idx")
+    pred = np.full(len(trip["track"]), -1, dtype=np.int64)
+    pred[best.obs_idx.to_numpy()] = best.arc_id.to_numpy()
+
+    # --- server-side scoring; ground truth never leaves this function ----
+    truth = align_route_to_track(trip)
+    scored = truth != UNLABELLED
+    top1 = float((pred[scored] == truth[scored]).mean()) if scored.any() else 0.0
+    continuity = route_continuity(trip, pred)
+
+    path = arcs_to_latlon_path(trip, [a for a in pred if a >= 0])
+
+    return {
+        "trip_id": trip_id,
+        "stage": "model",
+        "model_name": meta.get("model_name"),
+        "gps": gps,
+        "predicted_path": path,
+        "predicted_arcs": [int(a) for a in pred],
+        "metrics": {
+            "top1_accuracy": round(top1, 4),
+            "route_continuity": round(continuity, 4),
+            "n_observations": len(gps),
+            "n_scored": int(scored.sum()),
+            "n_candidates": int(len(cands)),
+            "inference_time_s": round(time.time() - t0, 3),
+        },
+        # Identical here because no decoder runs yet. Once Viterbi lands,
+        # top1_accuracy becomes the decoded route and this stays the
+        # independent per-observation argmax, making the gain visible.
+        "classifier_only": {"top1_accuracy": round(top1, 4)},
+    }
 
 
 @app.post("/predict/{trip_id}")
