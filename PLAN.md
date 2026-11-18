@@ -40,16 +40,79 @@ This generalises across trips and gives you Top-1 Accuracy and Candidate Miss Ra
 
 ---
 
-## 1. Roles
+## 1. Roles — concentrated build
 
-| Person | Owns | Never touches |
+Rhea owns the whole modelling pipeline. The other three have small, bounded,
+genuinely-owned tasks that do not block her and do not require reading `src/`.
+
+| Person | Owns | Blocks Rhea? |
 |---|---|---|
-| **A** | Data loading, label alignment, EDA, Folium maps | models, api |
-| **B** | Candidate generation, feature engineering, HMM + Viterbi | models, api |
-| **C** | 5 models, Bayesian optimisation, all comparison plots | api, geometry |
-| **D** | FastAPI, UI, two-laptop networking, repo hygiene, report assembly | model internals |
+| **Rhea** | All of `src/` — candidates, features, HMM/Viterbi, models, tuning, cleaning | — |
+| **P2 — Report** | Assembles the PDF, writes §1/§7/§8, formats tables from Rhea's CSVs | No |
+| **P3 — Viz & EDA** | Runs the EDA notebook, produces Folium maps and plots, screenshots | No |
+| **P4 — Demo & Infra** | API on Laptop 1, UI on Laptop 2, networking, README, repo hygiene | No |
 
-Everyone writes their own report section as they go. **Do not leave the report to the end.**
+**Viva requirement.** Organisers question members individually and the integrity
+policy expects everyone to defend the submission. Each of P2/P3/P4 must be able to
+explain *their own artefact* end to end — what the map shows and why those layers,
+where each table's numbers came from, how the two-laptop request actually flows.
+Rhea should walk the team through §0 (the three dataset facts) once, out loud,
+before phase-1. That is 15 minutes and it is the difference between a clean viva
+and a bad one.
+
+### P2 — Report owner (no coding)
+
+1. Create the PDF skeleton with the exact §2–§7 headings from the Deliverables doc.
+2. As Rhea commits CSVs to `results/`, paste them in as formatted tables.
+3. Write §1 (problem statement), §7 (API/UI/deployment, using P4's screenshots)
+   and §8 (AI-use disclosure and integrity statement).
+4. Final pass: every figure numbered and captioned, every table sourced from a
+   committed CSV, no placeholder text.
+5. Export one consolidated PDF. One file, not per-model reports.
+
+### P3 — Visualisation & EDA (run cells, light edits)
+
+1. Run `python -m src.labels data/train` and `data/student_test` — already works,
+   writes `results/label_quality_*.csv`.
+2. Build `notebooks/01_eda.ipynb` from `io_utils.trip_summary()` across all 90 trips:
+   inventory table, observations-per-trip histogram, sampling-interval distribution,
+   geographic extent table, road-network size and connectivity.
+3. Implement `viz.plot_trip()` (the four-layer Folium map — the hard part is just
+   remembering `[lat, lon]` order) and export maps for 2–3 trips to `maps/`.
+4. Screenshot one map for the PDF.
+5. Own the **datum-offset finding**: trips `00000054` and `00000033` sit ~118 m and
+   ~67 m off the road network. Plot them beside a healthy trip. This is the strongest
+   EDA result in the submission — be able to explain it.
+
+### P4 — Demo & infrastructure
+
+1. Get the two-laptop link working *today* and write the IP on paper. Firewall rule,
+   hotspot fallback tested. This is the single highest-risk item in the project.
+2. Keep `README.md` accurate as modules land.
+3. On demo day: run the API with `--host 0.0.0.0`, keep the log terminal visible,
+   loop all 10 evaluator trips before the evaluator arrives.
+4. Capture screenshots: working UI with a route rendered, API terminal showing live
+   request logs.
+5. Run the §9 checklist at phase-1 and before the final demo.
+
+### Rhea — ordered worklist
+
+You are the bottleneck now, so sequence matters. Each step unblocks the next; do not
+start the one after until the current one is measured.
+
+| # | Task | Why this order |
+|---|---|---|
+| 1 | `candidates.py` + miss-rate sweep | A bad ceiling invalidates everything after it |
+| 2 | `features.py` + `build_dataset` | Produces the training matrix |
+| 3 | `models.py` — 5 models, GroupKFold | Phase-1 needs a real number |
+| 4 | `tune.py` — Optuna | Mandatory deliverable |
+| 5 | `models.calibrate` | Correctness fix; emissions feed the HMM |
+| 6 | `hmm.py` — graph, transitions, Viterbi | The thesis of the project |
+| 7 | Wire the real model into `api/main.py` | Hand to P4 for the demo |
+| 8 | `clean.py` + ablations | Only if time remains — see §12 |
+
+**Commit after every step** and tell P2 which CSV just landed. If you fall behind,
+cut from the bottom (§11), never from the middle.
 
 ---
 
