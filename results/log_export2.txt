@@ -1,0 +1,8 @@
+train 1,204,862 rows / 80 trips
+
+  mlp                      top1=0.8315 f1=0.9045 logloss=0.1222 (0.0 MB, fit 35s)
+  decision_tree            top1=0.8417 f1=0.8744 logloss=0.2029 (0.4 MB, fit 38s)
+  knn                      top1=0.8262 f1=0.8967 logloss=0.2362 (10.4 MB, fit 0s)
+
+wrote artifacts/models.json (6 models)
+default artifacts/model.pkl -> hist_gradient_boosting (Top-1 0.8501)

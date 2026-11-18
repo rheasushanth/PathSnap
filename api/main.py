@@ -139,6 +139,24 @@ def models():
     }
 
 
+@app.get("/comparison")
+def comparison():
+    """The section 3.1 model-comparison table, in the brief's column order.
+
+    Served from the generated CSV so the UI shows exactly the table that is
+    in the report - the evaluator sees the same numbers on screen and on
+    paper, with no second transcription to go stale.
+    """
+    import csv as _csv
+    path = "results/table_3_1_model_comparison.csv"
+    if not os.path.exists(path):
+        return {"columns": [], "rows": [], "note": "table not generated yet"}
+    with open(path, newline="", encoding="utf-8") as f:
+        reader = _csv.DictReader(f)
+        rows = list(reader)
+    return {"columns": reader.fieldnames or [], "rows": rows}
+
+
 def predict_route(trip_id: str, model_name: str = None, use_hmm: bool = True) -> dict:
     """Run one trip through the full prediction pipeline.
 

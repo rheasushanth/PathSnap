@@ -84,9 +84,12 @@ def main(names=None):
 
     for name in names:
         index[name] = export_one(name, tr, te)
+        # Write the index after EVERY model, not once at the end. KNN takes
+        # ~400 s to score the test set, and batching the write meant a slow
+        # model hid every model exported before it from the API.
+        with open(INDEX, "w") as f:
+            json.dump(index, f, indent=2)
 
-    with open(INDEX, "w") as f:
-        json.dump(index, f, indent=2)
     print(f"\nwrote {INDEX} ({len(index)} models)")
 
     # Point the default at whichever model currently scores highest.

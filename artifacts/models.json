@@ -46,5 +46,53 @@
     "inference_seconds": 0.54,
     "artifact": "artifacts/model_random_forest.pkl",
     "size_mb": 178.1
+  },
+  "mlp": {
+    "model_name": "mlp",
+    "family": "Neural network",
+    "config": "(64,32), early_stopping, max_iter=60, scaled, fit on 100k subsample",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 100000,
+    "trained_trips": 80,
+    "student_test_top1": 0.831478869560675,
+    "student_test_macro_f1": 0.9045491931328665,
+    "student_test_log_loss": 0.12224775552749634,
+    "fit_seconds": 34.8,
+    "inference_seconds": 0.09,
+    "artifact": "artifacts/model_mlp.pkl",
+    "size_mb": 0.0
+  },
+  "decision_tree": {
+    "model_name": "decision_tree",
+    "family": "Tree-based (single)",
+    "config": "max_depth=14, min_samples_leaf=50, balanced",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 1204862,
+    "trained_trips": 80,
+    "student_test_top1": 0.8416653607062634,
+    "student_test_macro_f1": 0.8743846522083756,
+    "student_test_log_loss": 0.20285635665604768,
+    "fit_seconds": 38.2,
+    "inference_seconds": 0.04,
+    "artifact": "artifacts/model_decision_tree.pkl",
+    "size_mb": 0.4
+  },
+  "knn": {
+    "model_name": "knn",
+    "family": "Instance-based",
+    "config": "k=25, weights=distance, scaled, fit on 50k subsample",
+    "radius_m": 50.0,
+    "k": 10,
+    "trained_rows": 50000,
+    "trained_trips": 80,
+    "student_test_top1": 0.8261505511152902,
+    "student_test_macro_f1": 0.8967220394768356,
+    "student_test_log_loss": 0.23622934637077192,
+    "fit_seconds": 0.4,
+    "inference_seconds": 138.33,
+    "artifact": "artifacts/model_knn.pkl",
+    "size_mb": 10.4
   }
 }

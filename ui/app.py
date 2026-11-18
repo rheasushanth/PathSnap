@@ -117,16 +117,23 @@ with c2:
              "sequence decoded so consecutive roads must actually connect.",
     )
 
-if model_list:
-    with st.expander("All models (student-test, held out)"):
-        st.dataframe(
-            [{"Model": m["name"], "Family": m.get("family"),
-              "Top-1": round(m["student_test_top1"], 4),
-              "Macro F1": round(m.get("student_test_macro_f1") or 0, 4),
-              "Log Loss": round(m.get("student_test_log_loss") or 0, 4),
-              "Config": m.get("config")} for m in model_list],
-            hide_index=True, use_container_width=True,
-        )
+# The full section 3.1 comparison table, served from the same generated CSV
+# that goes into the report - so what the evaluator sees here and what they
+# read on paper are the same numbers, not two transcriptions.
+with st.expander("Model comparison — all models (Table 3.1)", expanded=False):
+    try:
+        comp = requests.get(f"{api_url}/comparison", timeout=5).json()
+        if comp.get("rows"):
+            st.dataframe(comp["rows"], hide_index=True, use_container_width=True)
+            st.caption(
+                "Student-test columns are the 10 held-out student-testing trips. "
+                "CV Macro F1 is group-aware 5-fold cross-validation over the 80 "
+                "training trips, grouped by trip so no trip appears in both folds."
+            )
+        else:
+            st.info("Comparison table not generated yet — run `python -m src.report`.")
+    except Exception as e:
+        st.warning(f"Could not load comparison table: {e}")
 
 if st.button("Run Prediction", type="primary"):
     t0 = time.time()
