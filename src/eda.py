@@ -88,11 +88,14 @@ def plot_overview(df: pd.DataFrame):
     ax[0, 2].set_xlabel("nodes")
     ax[0, 2].set_ylabel("arcs")
 
-    # Every trip has its own network in a different part of the world - the
-    # single most important structural fact about this dataset.
+    # Every trip has its own network in a different part of the world -
+    # the single most important structural fact about this dataset. The
+    # spread is global (roughly -100 to +140 longitude, -30 to +62
+    # latitude), not regional, which rules out any single projected
+    # coordinate system and forces the per-trip local projection in geo.py.
     for part, g in df.groupby("partition"):
         ax[1, 0].scatter(g.lon_min, g.lat_min, label=part, alpha=0.8, s=40)
-    ax[1, 0].set_title("Trip locations (Germany to Russia)")
+    ax[1, 0].set_title("Trip locations - six continents")
     ax[1, 0].set_xlabel("longitude")
     ax[1, 0].set_ylabel("latitude")
     ax[1, 0].legend(fontsize=8)
