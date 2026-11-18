@@ -8,3 +8,25 @@ please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
   import pandas as pd
 search set: 502,493 rows / 35 trips (of 1,204,862 / 80)
 
+  trial   0  top1=0.8529  <- new best (32s)
+  trial   1  top1=0.8546  <- new best (52s)
+  trial   5  top1=0.8535  (349s)
+  trial   8  top1=0.8558  <- new best (498s)
+  trial  10  top1=0.8547  (591s)
+  trial  15  top1=0.8551  (1426s)
+  trial  20  top1=0.8554  (1744s)
+  trial  23  top1=0.8558  <- new best (10393s)
+
+wrote results/optuna_trials.csv (25 trials, 10519s)
+
+=== BEST CONFIGURATION ===
+  max_iter               412
+  learning_rate          0.03553923272480017
+  max_leaf_nodes         154
+  min_samples_leaf       167
+  l2_regularization      9.153192414554304
+  max_bins               218
+  cv_top1 (search set)   0.8558
+
+refitting tuned and untuned on ALL training trips...
+  untuned  top1=0.8501 f1=0.9144 logloss=0.1091
