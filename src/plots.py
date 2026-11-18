@@ -16,12 +16,17 @@ import numpy as np
 import pandas as pd
 
 OUT = "results"
-PALETTE = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3"]
+PALETTE = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3", "#937860"]
+
+
+def _colors(n):
+    """Cycle the palette - adding a sixth model must not break the figures."""
+    return [PALETTE[i % len(PALETTE)] for i in range(n)]
 
 
 def _bar(ax, labels, values, title, ylabel, errs=None, fmt="{:.3f}"):
     bars = ax.bar(range(len(labels)), values, yerr=errs, capsize=4,
-                  color=PALETTE[:len(labels)])
+                  color=_colors(len(labels)))
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
     ax.set_title(title, fontsize=10)
@@ -52,7 +57,7 @@ def plot_model_comparison(csv=f"{OUT}/model_comparison.csv"):
 
     # Accuracy against cost - justifies the selection when scores are close.
     fig, ax = plt.subplots(figsize=(7, 5))
-    ax.scatter(df.inference_time_s, df.test_top1, s=90, c=PALETTE[:len(df)], zorder=3)
+    ax.scatter(df.inference_time_s, df.test_top1, s=90, c=_colors(len(df)), zorder=3)
     for _, r in df.iterrows():
         ax.annotate(r.model.replace("_", " "),
                     (r.inference_time_s, r.test_top1),

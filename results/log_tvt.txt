@@ -1,0 +1,25 @@
+C:\Users\Rhea Sushanth\new\pathsnap\src\train_vs_test.py:33: DeprecationWarning: 
+Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+but was not found to be installed on your system.
+If this would cause problems for you,
+please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+        
+  import pandas as pd
+  scoring logistic_regression...
+  scoring hist_gradient_boosting...
+  scoring random_forest...
+  scoring mlp...
+  scoring decision_tree...
+  scoring knn...
+
+wrote results/train_vs_test.csv
+
+                 model  train_top1  cv_top1  test_top1  train_minus_cv  cv_minus_test
+hist_gradient_boosting      0.8388   0.8237     0.8501          0.0151        -0.0265
+         random_forest      0.8458   0.8230     0.8428          0.0228        -0.0197
+         decision_tree      0.8369   0.8199     0.8417          0.0170        -0.0217
+                   mlp      0.8210   0.8163     0.8315          0.0047        -0.0152
+   logistic_regression      0.8108   0.8111     0.8287         -0.0003        -0.0176
+                   knn      0.8279   0.8095     0.8262          0.0183        -0.0166
+wrote results/fig_train_vs_test.png

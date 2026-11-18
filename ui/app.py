@@ -19,6 +19,17 @@ st.set_page_config(page_title="PathSnap", page_icon="*", layout="wide")
 st.title("PathSnap - Distributed Map-Matching & Route Reconstruction")
 st.caption("UE24CS352A Machine Learning | Laptop 2 (UI) -> Laptop 1 (API)")
 
+# Streamlit re-runs this whole script on every interaction, so without
+# caching each click fires four GETs and buries the actual prediction lines
+# in the API log the evaluator is watching. These three change rarely; 60 s
+# is short enough that a newly exported model still appears promptly.
+@st.cache_data(ttl=60, show_spinner=False)
+def api_get(url: str, params: tuple = ()):
+    r = requests.get(url, params=dict(params), timeout=8)
+    r.raise_for_status()
+    return r.json()
+
+
 def normalise_url(raw: str) -> str:
     """Accept '10.30.202.245:8000', 'http://host:8000/', or a bare host.
 
@@ -83,7 +94,7 @@ with col_a:
 # One API process serves both partitions and picks per request, so switching
 # to final evaluation needs no restart and no environment change on Laptop 1.
 try:
-    parts = requests.get(f"{api_url}/partitions", timeout=5).json()["partitions"]
+    parts = api_get(f"{api_url}/partitions")["partitions"]
 except Exception:
     parts = []
 
@@ -112,9 +123,8 @@ else:
     st.subheader("Development")
 
 try:
-    trip_params = {"partition": partition} if partition else {}
-    trips = requests.get(f"{api_url}/trips", params=trip_params,
-                         timeout=5).json()["trips"]
+    tp = (("partition", partition),) if partition else ()
+    trips = api_get(f"{api_url}/trips", tp)["trips"]
 except Exception as e:
     st.warning(f"Could not load trip list: {e}")
     trips = []
@@ -126,8 +136,7 @@ if not trips:
 # name means the dropdown is self-explaining - the evaluator can see what
 # they are choosing between without reading the report.
 try:
-    model_info = requests.get(f"{api_url}/models", timeout=5).json()
-    model_list = model_info.get("models", [])
+    model_list = api_get(f"{api_url}/models").get("models", [])
 except Exception:
     model_list = []
 
@@ -156,7 +165,7 @@ with c2:
 # read on paper are the same numbers, not two transcriptions.
 with st.expander("Model comparison — all models (Table 3.1)", expanded=False):
     try:
-        comp = requests.get(f"{api_url}/comparison", timeout=5).json()
+        comp = api_get(f"{api_url}/comparison")
         if comp.get("rows"):
             st.dataframe(comp["rows"], hide_index=True, use_container_width=True)
             st.caption(

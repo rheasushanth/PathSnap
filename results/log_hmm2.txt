@@ -1,0 +1,30 @@
+C:\Users\Rhea Sushanth\new\pathsnap\src\eval_hmm.py:17: DeprecationWarning: 
+Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+but was not found to be installed on your system.
+If this would cause problems for you,
+please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+        
+  import pandas as pd
+model=hist_gradient_boosting radius=50.0 k=10
+hmm cfg: beta=20.0 disconnect=-20.0
+
+00000000  top1 0.9149 -> 0.9241  (+0.0092)   cont 0.8196 -> 0.9414  (+0.1218)   1.6s
+00000007  top1 0.9328 -> 0.9948  (+0.0620)   cont 1.0000 -> 1.0000  (+0.0000)   0.7s
+00000009  top1 0.8637 -> 0.8818  (+0.0181)   cont 0.7885 -> 0.8422  (+0.0537)   2.0s
+00000040  top1 0.9102 -> 0.9279  (+0.0177)   cont 0.9302 -> 0.9628  (+0.0326)   4.1s
+00000052  top1 0.9427 -> 0.9656  (+0.0229)   cont 0.8372 -> 0.8675  (+0.0303)   0.5s
+00000056  top1 0.8764 -> 0.9165  (+0.0401)   cont 0.7912 -> 0.8754  (+0.0842)   8.7s
+00000065  top1 0.7904 -> 0.8099  (+0.0195)   cont 0.8397 -> 0.8670  (+0.0274)   12.6s
+00000076  top1 0.8546 -> 0.8863  (+0.0316)   cont 0.7598 -> 0.8527  (+0.0929)   2.7s
+00000077  top1 0.7106 -> 0.7579  (+0.0473)   cont 0.9429 -> 0.9600  (+0.0171)   14.3s
+00000091  top1 0.8375 -> 0.8684  (+0.0309)   cont 0.7353 -> 0.8282  (+0.0930)   1.2s
+
+=== OVERALL (observation-weighted) ===
+Top-1 accuracy      classifier 0.8501  ->  +HMM 0.8824   (+0.0322)
+Route continuity    classifier 0.8598  ->  +HMM 0.9176   (+0.0578)
+
+trips improved on Top-1      : 10/10
+trips improved on continuity : 9/10
+
+wrote results/hmm_comparison.csv
