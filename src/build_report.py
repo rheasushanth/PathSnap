@@ -17,6 +17,7 @@ Produces:
 
 import json
 import os
+import shutil
 import subprocess
 import pandas as pd
 
@@ -109,6 +110,15 @@ def generate_report():
             <td>{r['inference_s']:.2f}s</td>
         </tr>
         """
+
+    # Counts and the best trip are derived, never typed - an earlier revision
+    # hardcoded them and they drifted out of step with the table above.
+    n_trips = len(df_hmm)
+    n_top1_up = int((df_hmm.hmm_top1 > df_hmm.clf_top1).sum())
+    n_cont_up = int((df_hmm.hmm_continuity > df_hmm.clf_continuity).sum())
+    _best = df_hmm.loc[df_hmm.hmm_top1.idxmax()]
+    best_trip = str(int(_best.trip_id)).zfill(8)   # read as float by pandas
+    best_trip_top1 = float(_best.hmm_top1)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -438,7 +448,7 @@ where <i>d</i><sub>gps</sub> is great-circle haversine step distance, <i>d</i><s
 </div>
 
 <p>
-<strong>Key Finding:</strong> Viterbi sequence decoding improves Top-1 Accuracy across <strong>10 out of 10 trips</strong> (overall <strong>0.8503 &rarr; 0.8825</strong>, a +3.22% absolute increase) and boosts physical route continuity across <strong>9 out of 10 trips</strong> (overall <strong>0.8602 &rarr; 0.9178</strong>, a +5.76% absolute increase). On trip <code>00000007</code>, decoded Top-1 accuracy reached an extraordinary <strong>99.48%</strong> with 100.0% route continuity.
+<strong>Key Finding:</strong> Viterbi sequence decoding improves Top-1 Accuracy across <strong>{n_top1_up} out of {n_trips} trips</strong> (overall <strong>{overall_clf_top1:.4f} &rarr; {overall_hmm_top1:.4f}</strong>, {overall_top1_delta:+.4f} absolute) and improves physical route continuity across <strong>{n_cont_up} out of {n_trips} trips</strong> (overall <strong>{overall_clf_cont:.4f} &rarr; {overall_hmm_cont:.4f}</strong>, {overall_cont_delta:+.4f} absolute). The best single result is trip <code>{best_trip}</code> at <strong>{best_trip_top1:.4f}</strong> decoded Top-1 accuracy.
 </p>
 
 <div class="page-break"></div>
@@ -485,6 +495,23 @@ PathSnap was built from ground up to fulfill the rigorous hackathon live demonst
     <li><strong>Interactive Folium Canvas:</strong> Visualizes the reconstructed vehicle path over open street tile imagery with sub-second round-trip latency.</li>
 </ul>
 
+<h3>7.3 Live System Evidence</h3>
+
+<div class="figure-container">
+    <img src="screenshots/119a91a3-1c38-4a14-b129-39d3ca36926a.jpg" alt="Evaluator interface controls">
+    <div class="caption">Figure 9: Evaluator interface on Laptop 2, pointed at the Laptop 1 API over the LAN. The trip selector, the model dropdown annotated with each model's measured student-test Top-1, and the HMM/Viterbi toggle are all evaluator-controlled.</div>
+</div>
+
+<div class="figure-container">
+    <img src="screenshots/69d0bd33-6266-4ba0-8a97-eeacf875c887.jpg" alt="Prediction result with decoded route">
+    <div class="caption">Figure 10: Decoded result for trip 00000007 (1354 observations, 5.07 s round trip). Top-1 accuracy 0.9948 with 1.000 route continuity; the per-trip panel reports the classifier-only baseline of 0.9328 alongside it, so the contribution of decoding is visible in the interface itself.</div>
+</div>
+
+<div class="figure-container">
+    <img src="screenshots/Screenshot 2026-11-18 163614.png" alt="API request log on the receiving laptop">
+    <div class="caption">Figure 11: Live API request log on Laptop 1. Each inference records the partition, trip, selected model and decoding flag on request, and the resulting Top-1, continuity, observation count and latency on completion. Requests originate from 10.30.202.106, the Laptop 2 client.</div>
+</div>
+
 <h2>8. AI-Use Disclosure & Integrity Statement</h2>
 <p>
 In accordance with academic integrity guidelines for UE24CS352A, generative AI tools were utilized strictly for code refactoring, test script scaffolding, visualization formatting, and documentation assistance. All core algorithm implementations—including the monotonic dynamic programming alignment in <code>labels.py</code>, candidate spatial indexing in <code>candidates.py</code>, the 15-feature engineering schema in <code>features.py</code>, and the cached Dijkstra Viterbi decoder in <code>hmm.py</code>—were engineered, verified, and empirically benchmarked on authentic competition trajectory data.
@@ -508,9 +535,21 @@ In accordance with academic integrity guidelines for UE24CS352A, generative AI t
     pdf_path = f"{REPORT_DIR}/PathSnap_Report.pdf"
     results_pdf = f"{RESULTS_DIR}/PathSnap_Report.pdf"
     print(f"compiling {pdf_path} via weasyprint...")
-    cmd = ["/opt/homebrew/bin/weasyprint", html_path, pdf_path]
-    subprocess.run(cmd, check=True)
-    import shutil
+    # weasyprint is not installed on every team machine (it needs GTK on
+    # Windows). The HTML is the source of truth; if the converter is absent
+    # say so and carry on rather than failing the whole build - the page
+    # prints to PDF from any browser.
+    weasy = shutil.which("weasyprint")
+    if not weasy:
+        print("weasyprint not found - HTML written, PDF skipped.")
+        print("  Convert with:  open the HTML in a browser, Print -> Save as PDF")
+        print("  or install:    pip install weasyprint")
+        return
+    try:
+        subprocess.run([weasy, html_path, pdf_path], check=True)
+    except Exception as e:
+        print(f"weasyprint failed ({e}) - HTML written, PDF skipped.")
+        return
     shutil.copyfile(pdf_path, results_pdf)
     print(f"wrote {pdf_path} ({os.path.getsize(pdf_path)/1024:.1f} KB)")
     print(f"wrote {results_pdf}")
