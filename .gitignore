@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+.DS_Store
+.vscode/
+.idea/
+
+# Raw dataset - too large for git. Each member extracts locally.
+data/train/
+data/student_test/
+data/evaluator_test/
+
+# Large intermediates
+results/*.parquet
+*.log
