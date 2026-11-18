@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 OUT = "results"
@@ -124,9 +125,61 @@ def plot_mlp_training_curve(model, path=f"{OUT}/fig_mlp_loss_curve.png"):
     print(f"wrote {path}")
 
 
+def plot_hmm_comparison(csv=f"{OUT}/hmm_comparison.csv"):
+    """Classifier-only vs classifier+HMM, per trip and overall.
+
+    This is the central result of the project, so it gets its own figure.
+    """
+    df = pd.read_csv(csv).sort_values("clf_top1")
+    x = np.arange(len(df))
+    w = 0.38
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    for ax, (c, h, title) in zip(axes, [
+        ("clf_top1", "hmm_top1", "Top-1 accuracy"),
+        ("clf_continuity", "hmm_continuity", "Route continuity"),
+    ]):
+        ax.bar(x - w / 2, df[c], w, label="Classifier only", color=PALETTE[0])
+        ax.bar(x + w / 2, df[h], w, label="Classifier + HMM/Viterbi", color=PALETTE[2])
+        ax.set_xticks(x)
+        ax.set_xticklabels(df.trip_id.astype(str), rotation=60, ha="right", fontsize=7)
+        ax.set_title(title)
+        ax.set_ylim(0, 1.05)
+        ax.legend(fontsize=8)
+        ax.grid(axis="y", alpha=0.3)
+
+    fig.suptitle("HMM decoding against the classifier-only baseline "
+                 "(10 student-test trips)", fontsize=12)
+    fig.tight_layout()
+    fig.savefig(f"{OUT}/fig_hmm_comparison.png", dpi=150)
+    print(f"wrote {OUT}/fig_hmm_comparison.png")
+
+    # Per-trip deltas: shows both the wins and the one regression.
+    fig, ax = plt.subplots(figsize=(9, 4.5))
+    d = df.sort_values("top1_delta")
+    colors = ["#C44E52" if v < 0 else "#55A868" for v in d.top1_delta]
+    ax.barh(range(len(d)), d.top1_delta, color=colors)
+    ax.set_yticks(range(len(d)))
+    ax.set_yticklabels(d.trip_id.astype(str), fontsize=8)
+    ax.axvline(0, c="black", lw=0.8)
+    ax.set_xlabel("Top-1 accuracy change from HMM decoding")
+    ax.set_title("Per-trip effect of HMM decoding (red = decoding hurt)")
+    ax.grid(axis="x", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(f"{OUT}/fig_hmm_delta.png", dpi=150)
+    print(f"wrote {OUT}/fig_hmm_delta.png")
+    return df
+
+
 if __name__ == "__main__":
     import os
-    df = plot_model_comparison()
+    if os.path.exists(f"{OUT}/model_comparison.csv"):
+        df = plot_model_comparison()
+        print("\n" + df[["model", "cv_top1", "test_top1"]].to_string(index=False))
+    else:
+        print("model_comparison.csv not written yet - skipping model figures")
     if os.path.exists(f"{OUT}/candidate_sweep.csv"):
         plot_candidate_sweep()
-    print("\n" + df[["model", "cv_top1", "test_top1", "test_macro_f1"]].to_string(index=False))
+    if os.path.exists(f"{OUT}/hmm_comparison.csv"):
+        plot_hmm_comparison()

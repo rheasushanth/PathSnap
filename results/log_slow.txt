@@ -14,3 +14,13 @@ train 1,204,862 rows | test 130,768 rows
   TEST macro_f1=0.8991  top1=0.8428  logloss=0.1486  continuity=0.8350
 
 === knn ===
+  CV  macro_f1=0.8872  top1=0.8095
+  TEST macro_f1=0.8967  top1=0.8262  logloss=0.2362  continuity=0.8462
+
+wrote results/model_comparison.csv (2 models)
+
+        model             family  cv_macro_f1  cv_top1  test_top1  test_macro_f1  test_log_loss  test_route_continuity
+random_forest Ensemble (bagging)     0.892116 0.823046   0.842762       0.899087       0.148607               0.834973
+          knn     Instance-based     0.887218 0.809514   0.826151       0.896722       0.236229               0.846196
+
+BEST SO FAR: random_forest  test_top1=0.8428
