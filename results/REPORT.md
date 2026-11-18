@@ -97,10 +97,14 @@ Selected: radius 50 m, k = 10 — miss rate 0.0167, 6.83 candidates per observat
 
 ### 3.1 Overall comparison
 
-| model         | family             | config                                               |   cv_macro_f1 |   cv_top1 |   test_top1 |   test_macro_f1 |   test_log_loss |   test_route_continuity |   train_time_s |   inference_time_s |
-|:--------------|:-------------------|:-----------------------------------------------------|--------------:|----------:|------------:|----------------:|----------------:|------------------------:|---------------:|-------------------:|
-| random_forest | Ensemble (bagging) | 120 trees, min_samples_leaf=20, balanced_subsample   |        0.8921 |    0.823  |      0.8428 |          0.8991 |          0.1486 |                  0.835  |       159.214  |             0.5316 |
-| knn           | Instance-based     | k=25, weights=distance, scaled, fit on 50k subsample |        0.8872 |    0.8095 |      0.8262 |          0.8967 |          0.2362 |                  0.8462 |         0.3728 |           403.588  |
+| model                  | family                 | config                                                              |   cv_macro_f1 |   cv_top1 |   test_top1 |   test_macro_f1 |   test_log_loss |   test_route_continuity |   train_time_s |   inference_time_s |
+|:-----------------------|:-----------------------|:--------------------------------------------------------------------|--------------:|----------:|------------:|----------------:|----------------:|------------------------:|---------------:|-------------------:|
+| hist_gradient_boosting | Boosting               | max_iter=400, lr=0.05                                               |        0.9034 |    0.8237 |      0.8501 |          0.9144 |          0.1091 |                  0.8444 |        17.9127 |             0.588  |
+| random_forest          | Ensemble (bagging)     | 120 trees, min_samples_leaf=20, balanced_subsample                  |        0.8921 |    0.823  |      0.8428 |          0.8991 |          0.1486 |                  0.835  |       159.214  |             0.5316 |
+| decision_tree          | Tree-based (single)    | max_depth=14, min_samples_leaf=50, balanced                         |        0.87   |    0.8199 |      0.8417 |          0.8744 |          0.2029 |                  0.8412 |        35.0496 |             0.0335 |
+| mlp                    | Neural network         | (64,32), early_stopping, max_iter=60, scaled, fit on 100k subsample |        0.8966 |    0.8163 |      0.8315 |          0.9045 |          0.1222 |                  0.8386 |        63.5871 |             0.0859 |
+| logistic_regression    | Linear / probabilistic | C=1.0, class_weight=balanced, scaled                                |        0.8172 |    0.8111 |      0.8287 |          0.8255 |          0.2389 |                  0.8221 |         2.6854 |             0.0407 |
+| knn                    | Instance-based         | k=25, weights=distance, scaled, fit on 50k subsample                |        0.8872 |    0.8095 |      0.8262 |          0.8967 |          0.2362 |                  0.8462 |         0.3728 |           403.588  |
 
 
 ![Model comparison](fig_model_comparison.png)
@@ -115,6 +119,19 @@ Selected: radius 50 m, k = 10 — miss rate 0.0167, 6.83 candidates per observat
 ### 3.2 Per-model discussion
 
 
+#### hist_gradient_boosting (Boosting)
+
+- Configuration: `max_iter=400, lr=0.05`
+
+- Student-test Top-1: **0.8501**, Macro F1 0.9144, Log Loss 0.1091
+
+- Cross-validation Top-1: 0.8237 (gap to test +0.0265)
+
+- Why suitable / strengths / limitations: >>> WRITE THIS YOURSELF <<<
+
+- Overfitting or underfitting, with evidence: >>> WRITE THIS YOURSELF <<<
+
+
 #### random_forest (Ensemble (bagging))
 
 - Configuration: `120 trees, min_samples_leaf=20, balanced_subsample`
@@ -122,6 +139,45 @@ Selected: radius 50 m, k = 10 — miss rate 0.0167, 6.83 candidates per observat
 - Student-test Top-1: **0.8428**, Macro F1 0.8991, Log Loss 0.1486
 
 - Cross-validation Top-1: 0.8230 (gap to test +0.0197)
+
+- Why suitable / strengths / limitations: >>> WRITE THIS YOURSELF <<<
+
+- Overfitting or underfitting, with evidence: >>> WRITE THIS YOURSELF <<<
+
+
+#### decision_tree (Tree-based (single))
+
+- Configuration: `max_depth=14, min_samples_leaf=50, balanced`
+
+- Student-test Top-1: **0.8417**, Macro F1 0.8744, Log Loss 0.2029
+
+- Cross-validation Top-1: 0.8199 (gap to test +0.0217)
+
+- Why suitable / strengths / limitations: >>> WRITE THIS YOURSELF <<<
+
+- Overfitting or underfitting, with evidence: >>> WRITE THIS YOURSELF <<<
+
+
+#### mlp (Neural network)
+
+- Configuration: `(64,32), early_stopping, max_iter=60, scaled, fit on 100k subsample`
+
+- Student-test Top-1: **0.8315**, Macro F1 0.9045, Log Loss 0.1222
+
+- Cross-validation Top-1: 0.8163 (gap to test +0.0152)
+
+- Why suitable / strengths / limitations: >>> WRITE THIS YOURSELF <<<
+
+- Overfitting or underfitting, with evidence: >>> WRITE THIS YOURSELF <<<
+
+
+#### logistic_regression (Linear / probabilistic)
+
+- Configuration: `C=1.0, class_weight=balanced, scaled`
+
+- Student-test Top-1: **0.8287**, Macro F1 0.8255, Log Loss 0.2389
+
+- Cross-validation Top-1: 0.8111 (gap to test +0.0176)
 
 - Why suitable / strengths / limitations: >>> WRITE THIS YOURSELF <<<
 

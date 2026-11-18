@@ -41,6 +41,61 @@ def _table(df, cols=None, rename=None, floats=4):
     return d.round(floats).to_markdown(index=False) + "\n"
 
 
+# Exact column order and headings required by the brief's section 3.1 table.
+RUBRIC_COLS = [
+    ("model", "Model"),
+    ("family", "Algorithm Family"),
+    ("config", "Key Configuration"),
+    ("cv_macro_f1", "CV Macro F1-score"),
+    ("test_top1", "Top-1 Accuracy"),
+    ("test_route_continuity", "Route continuity"),
+    ("test_macro_f1", "Student-Test Macro F1-score"),
+    ("test_log_loss", "Log Loss"),
+    ("inference_time_s", "Inference Time"),
+]
+
+
+def rubric_table(df: pd.DataFrame = None) -> pd.DataFrame:
+    """The section 3.1 comparison table, in the brief's exact column order.
+
+    Any metric that genuinely does not apply to a model is written as "N/A"
+    rather than left blank - the brief asks for that explicitly.
+    """
+    df = df if df is not None else _csv("model_comparison.csv")
+    if df is None:
+        return pd.DataFrame(columns=[h for _, h in RUBRIC_COLS])
+
+    df = df.sort_values("test_top1", ascending=False)
+    out = pd.DataFrame()
+    for src, head in RUBRIC_COLS:
+        if src not in df.columns:
+            out[head] = ["N/A"] * len(df)
+        elif src in ("model", "family", "config"):
+            out[head] = df[src].astype(str).values
+        elif src == "inference_time_s":
+            out[head] = [f"{v:.2f} s" if pd.notna(v) else "N/A" for v in df[src]]
+        else:
+            out[head] = [f"{v:.4f}" if pd.notna(v) else "N/A" for v in df[src]]
+    return out
+
+
+def write_rubric_table():
+    """Emit the section 3.1 table to artifacts/ and results/ as CSV and Markdown."""
+    t = rubric_table()
+    for d in ("artifacts", OUT):
+        os.makedirs(d, exist_ok=True)
+        t.to_csv(f"{d}/table_3_1_model_comparison.csv", index=False)
+        with open(f"{d}/table_3_1_model_comparison.md", "w", encoding="utf-8") as f:
+            f.write("# Table 3.1 - Overall Model Comparison\n\n")
+            f.write("Student-test columns are the 10 held-out student-testing "
+                    "trips. CV columns are group-aware 5-fold cross-validation "
+                    "over the 80 training trips, grouped by trip.\n\n")
+            f.write(t.to_markdown(index=False) + "\n")
+    print(f"wrote table_3_1_model_comparison.{{csv,md}} to artifacts/ and {OUT}/ "
+          f"({len(t)} models)")
+    return t
+
+
 def build() -> str:
     L = []
     w = L.append
@@ -224,6 +279,7 @@ def build() -> str:
 
 
 if __name__ == "__main__":
+    write_rubric_table()
     md = build()
     path = f"{OUT}/REPORT.md"
     with open(path, "w", encoding="utf-8") as f:

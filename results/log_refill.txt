@@ -1,0 +1,30 @@
+C:\Users\Rhea Sushanth\new\pathsnap\src\run_models.py:18: DeprecationWarning: 
+Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+but was not found to be installed on your system.
+If this would cause problems for you,
+please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+        
+  import pandas as pd
+running: ['logistic_regression', 'hist_gradient_boosting']
+train 1,204,862 rows | test 130,768 rows
+
+=== logistic_regression ===
+  CV  macro_f1=0.8172  top1=0.8111
+  TEST macro_f1=0.8255  top1=0.8287  logloss=0.2389  continuity=0.8221
+
+=== hist_gradient_boosting ===
+  CV  macro_f1=0.9034  top1=0.8237
+  TEST macro_f1=0.9144  top1=0.8501  logloss=0.1091  continuity=0.8444
+
+wrote results/model_comparison.csv (6 models)
+
+                 model                 family  cv_macro_f1  cv_top1  test_top1  test_macro_f1  test_log_loss  test_route_continuity
+hist_gradient_boosting               Boosting     0.903390 0.823669   0.850128       0.914442       0.109081               0.844370
+         random_forest     Ensemble (bagging)     0.892116 0.823046   0.842762       0.899087       0.148607               0.834973
+         decision_tree    Tree-based (single)     0.869996 0.819927   0.841665       0.874385       0.202856               0.841199
+                   mlp         Neural network     0.896596 0.816301   0.831479       0.904549       0.122248               0.838592
+   logistic_regression Linear / probabilistic     0.817199 0.811131   0.828710       0.825452       0.238876               0.822105
+                   knn         Instance-based     0.887218 0.809514   0.826151       0.896722       0.236229               0.846196
+
+BEST SO FAR: hist_gradient_boosting  test_top1=0.8501

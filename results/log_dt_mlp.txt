@@ -14,3 +14,17 @@ train 1,204,862 rows | test 130,768 rows
   TEST macro_f1=0.8744  top1=0.8417  logloss=0.2029  continuity=0.8412
 
 === mlp ===
+C:\Users\Rhea Sushanth\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\neural_network\_multilayer_perceptron.py:785: ConvergenceWarning: Stochastic Optimizer: Maximum iterations (60) reached and the optimization hasn't converged yet.
+  warnings.warn(
+  CV  macro_f1=0.8966  top1=0.8163
+  TEST macro_f1=0.9045  top1=0.8315  logloss=0.1222  continuity=0.8386
+
+wrote results/model_comparison.csv (4 models)
+
+        model              family  cv_macro_f1  cv_top1  test_top1  test_macro_f1  test_log_loss  test_route_continuity
+random_forest  Ensemble (bagging)     0.892116 0.823046   0.842762       0.899087       0.148607               0.834973
+decision_tree Tree-based (single)     0.869996 0.819927   0.841665       0.874385       0.202856               0.841199
+          mlp      Neural network     0.896596 0.816301   0.831479       0.904549       0.122248               0.838592
+          knn      Instance-based     0.887218 0.809514   0.826151       0.896722       0.236229               0.846196
+
+BEST SO FAR: random_forest  test_top1=0.8428
