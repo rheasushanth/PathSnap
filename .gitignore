@@ -16,3 +16,5 @@ data/evaluator_test/
 # Large intermediates
 results/*.parquet
 *.log
+results/*.pkl
+results/api_log.txt
