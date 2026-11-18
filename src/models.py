@@ -44,7 +44,7 @@ FAMILY = {
 CONFIG = {
     "logistic_regression": "C=1.0, class_weight=balanced, scaled",
     "knn": "k=25, weights=distance, scaled, fit on 50k subsample",
-    "random_forest": "300 trees, min_samples_leaf=5, balanced_subsample",
+    "random_forest": "120 trees, min_samples_leaf=20, balanced_subsample",
     "hist_gradient_boosting": "max_iter=400, lr=0.05",
     "mlp": "(64,32), early_stopping, scaled",
 }
@@ -58,8 +58,12 @@ def get_models() -> dict:
             ("clf", LogisticRegression(max_iter=1000, class_weight="balanced",
                                        random_state=RANDOM_STATE)),
         ]),
+        # 120 trees with a leaf floor of 20. At 1.2M rows, 300 unconstrained
+        # trees took over 15 minutes per CV sweep for no measurable accuracy
+        # gain - the dataset is large relative to its 15 features, so extra
+        # trees mostly add cost. Documented as a deliberate budget choice.
         "random_forest": RandomForestClassifier(
-            n_estimators=300, min_samples_leaf=5, class_weight="balanced_subsample",
+            n_estimators=120, min_samples_leaf=20, class_weight="balanced_subsample",
             n_jobs=-1, random_state=RANDOM_STATE),
         "hist_gradient_boosting": HistGradientBoostingClassifier(
             max_iter=400, learning_rate=0.05, random_state=RANDOM_STATE),

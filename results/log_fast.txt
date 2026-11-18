@@ -1,0 +1,20 @@
+C:\Users\Rhea Sushanth\new\pathsnap\src\run_models.py:18: DeprecationWarning: 
+Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+(to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+but was not found to be installed on your system.
+If this would cause problems for you,
+please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+        
+  import pandas as pd
+running: ['logistic_regression', 'hist_gradient_boosting', 'mlp']
+train 1,204,862 rows | test 130,768 rows
+
+=== logistic_regression ===
+  CV  macro_f1=0.8172  top1=0.8111
+  TEST macro_f1=0.8255  top1=0.8287  logloss=0.2389  continuity=0.8221
+
+=== hist_gradient_boosting ===
+  CV  macro_f1=0.9034  top1=0.8237
+  TEST macro_f1=0.9144  top1=0.8501  logloss=0.1091  continuity=0.8444
+
+=== mlp ===
