@@ -26,6 +26,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import f1_score, log_loss
 
 from src.features import FEATURE_COLS, FEATURE_GROUPS, load_dataset
@@ -39,6 +40,7 @@ FAMILY = {
     "random_forest": "Ensemble (bagging)",
     "hist_gradient_boosting": "Boosting",
     "mlp": "Neural network",
+    "decision_tree": "Tree-based (single)",
 }
 
 CONFIG = {
@@ -46,7 +48,8 @@ CONFIG = {
     "knn": "k=25, weights=distance, scaled, fit on 50k subsample",
     "random_forest": "120 trees, min_samples_leaf=20, balanced_subsample",
     "hist_gradient_boosting": "max_iter=400, lr=0.05",
-    "mlp": "(64,32), early_stopping, scaled, fit on 300k subsample",
+    "mlp": "(64,32), early_stopping, max_iter=60, scaled, fit on 100k subsample",
+    "decision_tree": "max_depth=14, min_samples_leaf=50, balanced",
 }
 
 
@@ -67,10 +70,20 @@ def get_models() -> dict:
             n_jobs=-1, random_state=RANDOM_STATE),
         "hist_gradient_boosting": HistGradientBoostingClassifier(
             max_iter=400, learning_rate=0.05, random_state=RANDOM_STATE),
+        # Single tree: deliberately the weakest learner in the set, included
+        # so the ensemble and boosting results have a like-for-like baseline
+        # to be compared against rather than only against each other.
+        "decision_tree": DecisionTreeClassifier(
+            max_depth=14, min_samples_leaf=50, class_weight="balanced",
+            random_state=RANDOM_STATE),
+        # sklearn's MLP is single-threaded and was the most expensive model
+        # here by an order of magnitude - 8+ minutes of CPU per fold at 300k
+        # rows. Capped on both rows and epochs as a compute-budget decision;
+        # early stopping typically fires well before 60 epochs anyway.
         "mlp": Pipeline([
             ("scaler", StandardScaler()),
             ("clf", MLPClassifier(hidden_layer_sizes=(64, 32), early_stopping=True,
-                                  max_iter=300, random_state=RANDOM_STATE)),
+                                  max_iter=60, random_state=RANDOM_STATE)),
         ]),
         "knn": Pipeline([
             ("scaler", StandardScaler()),
@@ -116,7 +129,7 @@ def _continuity(df: pd.DataFrame, proba: np.ndarray, arcs_by_trip: dict) -> floa
 # Document this in the report: it is a real limitation of the algorithm for
 # this problem, not a measurement artefact, and it is part of why KNN is a
 # poor fit here regardless of its accuracy.
-FIT_SUBSAMPLE = {"knn": 50_000, "mlp": 300_000}
+FIT_SUBSAMPLE = {"knn": 50_000, "mlp": 100_000}
 
 
 def _subsample(name, idx, rng):
