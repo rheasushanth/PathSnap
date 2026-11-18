@@ -408,7 +408,18 @@ Newson & Krumm formulation, in log space throughout.
   you have no information about what happened in between, so don't pretend you do.
 - **Viterbi:** standard `O(N·k²)` forward pass storing backpointers, then backtrack.
 
-Tune `beta` and the disconnect penalty on **training + student_test only**.
+**Tuning split — read this, the obvious approach is wrong.**
+Tuning `beta` on all 10 student-test trips and then *reporting* on those same 10
+trips makes your HMM numbers optimistic: you fitted the decoder to the set you're
+scoring on. Instead do one of:
+
+- **Preferred:** tune `beta` and the penalty by group-CV on the **80 training
+  trips**, then report on all 10 student-test trips, which stay genuinely held out.
+- **Acceptable:** split student-test 5 tune / 5 report, and say so in the report.
+
+Either way, state explicitly in §5 which trips tuned the decoder and which produced
+the reported numbers. Evaluators look for this.
+
 Save the chosen values to `artifacts/hmm_config.json`.
 
 ### B4. Evaluation + report §5 — 40 min, `notebooks/03_hmm_eval.ipynb`
@@ -664,3 +675,64 @@ Protect the demo and the report; sacrifice depth.
 **Never cut:** five models, Bayesian optimisation, HMM/Viterbi, the Folium map, the
 two-laptop demo, the PDF. Those are each separately mandatory, and the policy states a
 high score on one metric does not compensate for a missing component.
+
+---
+
+## 12. Differentiation — what lifts this above a correct-but-standard submission
+
+Be honest with yourselves about the baseline: §5–§8 is the **Newson & Krumm (2009)**
+HMM map-matching framework with a learned emission model. That is the canonical
+approach, it is the right choice, and roughly every competent team will land near it.
+Rigour alone will beat most of them. These additions are what separate first from third.
+
+Reference for the cleaning and confidence ideas: Zepto's *Route IQ* engineering blog
+(blog.zepto.com, Aug 2026), which solves this exact problem for delivery fleets.
+**Cite it in the report.** Adapting a documented industrial technique and measuring it
+on your data is good engineering. Presenting it as your own invention is not.
+
+### Ranked by return on time
+
+| # | Addition | Time | Why it pays |
+|---|---|---|---|
+| 1 | **Emission calibration** (`models.calibrate`) | 30 m | Fixes a real bug, not just novelty |
+| 2 | **GPS cleaning pipeline** (`src/clean.py`) | 90 m | Biggest visible differentiator; answers "how did you preprocess?" |
+| 3 | **Feature-group ablation** (`models.ablate_feature_groups`) | 30 m | Analytical depth, reuses existing pipeline |
+| 4 | **Adaptive beta** (`hmm.adaptive_beta`) | 20 m | Departs from textbook, defensible |
+| 5 | **Confidence scoring + fallback** (`hmm.confidence_label`) | 40 m | Engineering maturity; great UI demo |
+
+**#1 is a correctness fix, not a nice-to-have.** Three of the five models use
+`class_weight='balanced'`, which deliberately distorts output probabilities, and tree
+ensembles are badly calibrated by default. Those probabilities *are* the HMM emissions.
+Uncalibrated, Viterbi is balancing a skewed emission term against a well-specified
+transition term and quietly optimising the wrong objective. Do this one even if you
+do nothing else here.
+
+**#2 is the most visible.** Most teams feed raw GPS straight into candidate generation.
+A real cleaning stage — multi-factor anomaly scoring, iterative one-at-a-time removal,
+stall compression, Kalman smoothing — is immediately legible to an evaluator and
+directly answers a rubric question. See `src/clean.py` for the method.
+
+### Every addition must come with a measured ablation
+
+This is the whole point. Each one gets a row in a table with the same metric, same
+trips, feature on vs off:
+
+| Variant | Top-1 Acc | Macro F1 | Route Continuity |
+|---|---|---|---|
+| Classifier only | | | |
+| + HMM/Viterbi (fixed beta, uncalibrated) | | | |
+| + calibrated emissions | | | |
+| + GPS cleaning | | | |
+| + adaptive beta | | | |
+
+**Report negative results honestly.** If cleaning hurts accuracy, say so and reason
+about why — the rubric explicitly asks you to "discuss cases where HMM decoding did not
+help." A team that reports a feature made things 2% worse and explains the mechanism
+demonstrates more understanding than one whose every number happens to go up.
+
+### Deliberately out of scope
+
+Not worth the time today, but good answers if the viva asks "what would you do next":
+a learned transition model, a GNN over the arc-adjacency graph, a sequence model for
+temporal context beyond the single `connected_to_prev_best` feature, and online
+streaming Viterbi with fixed lag (which is what a real navigation app actually needs).

@@ -42,6 +42,12 @@ DEFAULT_CFG = {
     "gap_dist_m": 500.0,
     "dijkstra_cutoff_mult": 3.0,
     "dijkstra_cutoff_base_m": 100.0,
+    # adaptive transition scale (see adaptive_beta); set to 0 for fixed beta
+    "beta_speed_coef": 0.0,
+    "beta_gap_coef": 0.0,
+    # confidence thresholds (see confidence_label)
+    "dtw_frac_threshold": 0.10,
+    "max_gap_s": 180.0,
 }
 
 
@@ -69,6 +75,61 @@ def viterbi(trip: dict, cands_with_proba: pd.DataFrame, cfg: dict = None) -> np.
     at least one.
     """
     cfg = {**DEFAULT_CFG, **(cfg or {})}
+    raise NotImplementedError("B")
+
+
+def adaptive_beta(speed_mps: float, dt_s: float, cfg: dict) -> float:
+    """Speed- and gap-aware transition scale. NOVELTY - a learned-ish transition.
+
+    A fixed beta is the textbook choice and it is wrong in two regimes:
+      - fast motion: a legitimate 200 m step looks like a huge |d_gps - d_road|
+        mismatch under a beta tuned on slow urban driving
+      - long sampling gaps: the vehicle genuinely could have gone further, so
+        the model should be MORE permissive, not less
+
+    beta_eff = beta * (1 + a*speed_norm + b*gap_norm)
+
+    Ablate it: fixed beta vs adaptive beta, same decoder, same trips. Report
+    the delta. This is one of the few places the design departs from the
+    standard Newson & Krumm formulation, so it is worth defending properly.
+    """
+    raise NotImplementedError("B")
+
+
+def dtw_deviation(trip: dict, pred_arc_ids: np.ndarray) -> float:
+    """Mean DTW deviation (metres) between the GPS trace and the decoded route.
+
+    Dynamic Time Warping aligns two sequences of DIFFERENT lengths - here the
+    N GPS observations against the decoded route polyline - without assuming
+    they are sampled in step. Plain pointwise distance cannot do this.
+
+    Use it as a per-trip CONFIDENCE signal, not a loss. If mean deviation
+    exceeds ~10% of path length, the decode has probably gone somewhere the
+    vehicle did not.
+    """
+    raise NotImplementedError("B")
+
+
+def confidence_label(trip: dict, pred_arc_ids: np.ndarray, cands: pd.DataFrame,
+                     cfg: dict = None) -> dict:
+    """High / Medium / Low confidence for one decoded trip. NOVELTY.
+
+    Nothing else in the system tells the evaluator WHEN TO DISTRUST the output.
+    Four independent signals, each catching a different failure mode:
+
+      1. mean emission probability of the chosen path (model certainty)
+      2. DTW deviation vs path length           (geometric plausibility)
+      3. largest timestamp gap in the trip      (coverage)
+      4. fraction of transitions that were disconnected-penalised (continuity)
+
+    Returns {label, signals: {...}, fallback_used: bool}.
+
+    FALLBACK RULE, straight from the Zepto pipeline: on Low confidence, fall
+    back to the per-observation nearest-arc snap rather than the decoded route.
+    A bad decode must never make the output worse than the trivial baseline.
+    Surface the label in the UI - it demonstrates engineering maturity and it
+    is a good viva answer.
+    """
     raise NotImplementedError("B")
 
 

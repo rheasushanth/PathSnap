@@ -73,6 +73,44 @@ def run_comparison(df_train, df_test, feature_cols,
     raise NotImplementedError("C")
 
 
+def calibrate(model, df_cal, feature_cols, method="isotonic"):
+    """Probability calibration. NOVELTY + CORRECTNESS - do not skip this.
+
+    The classifier's output is used directly as the HMM EMISSION probability,
+    so the ranking being right is not enough: the numbers themselves have to
+    mean something. Two things in this pipeline actively distort them:
+
+      1. class_weight='balanced' (used in 3 of the 5 models) deliberately
+         reweights the classes and inflates positive-class probabilities.
+      2. Tree ensembles are poorly calibrated by default - RandomForest
+         averages votes and pushes probabilities toward the middle.
+
+    Miscalibrated emissions silently reweight the HMM against the transition
+    term, so Viterbi balances the wrong two quantities.
+
+    Fit on a held-out calibration split that is GROUP-DISJOINT from both the
+    training trips and the trips used for final reporting.
+
+    Report: reliability diagram before/after, Brier score before/after, and
+    Top-1 accuracy after Viterbi with calibrated vs uncalibrated emissions.
+    That last number is the one that matters.
+    """
+    from sklearn.calibration import CalibratedClassifierCV
+    raise NotImplementedError("C: CalibratedClassifierCV(model, method=method, cv='prefit')")
+
+
+def ablate_feature_groups(df_train, df_test, feature_cols,
+                          out_csv="results/ablation.csv"):
+    """Feature-group ablation. Cheap analytical depth for the report.
+
+    Groups: geometric / directional / kinematic / topological (see
+    features.FEATURE_COLS). Drop one group at a time, retrain the chosen
+    model, record the Top-1 drop. Shows WHICH signals carry the task rather
+    than just that the model works.
+    """
+    raise NotImplementedError("C")
+
+
 def export_final(model, scaler, feature_cols, path="artifacts/model.pkl") -> None:
     """Freeze everything inference needs into one file for the API."""
     joblib.dump({"model": model, "scaler": scaler, "features": list(feature_cols),

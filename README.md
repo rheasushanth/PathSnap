@@ -24,15 +24,27 @@ a trip and a global arc classifier is impossible. Instead:
 
 1. **Label derivation** — `.route` is a sequence of arcs, not per-observation labels.
    A monotonic DP aligns GPS observations to the route's arc sequence.
-2. **Candidate generation** — KD-tree prefilter over arc midpoints, exact
+2. **GPS cleaning** — multi-factor anomaly scoring with iterative one-at-a-time
+   outlier removal, stall compression, and constant-velocity Kalman smoothing.
+3. **Candidate generation** — KD-tree prefilter over arc midpoints, exact
    point-to-segment re-rank, top *k* within a radius.
-3. **Binary candidate ranker** — one row per (observation, candidate arc); the model
-   predicts whether that candidate is the true arc.
-4. **HMM + Viterbi** — classifier probability as the emission; transition scores
-   compare network shortest-path distance against GPS step distance.
+4. **Binary candidate ranker** — one row per (observation, candidate arc); the model
+   predicts whether that candidate is the true arc. Probabilities are **calibrated**,
+   since they serve as HMM emissions.
+5. **HMM + Viterbi** — calibrated classifier probability as the emission; transition
+   scores compare network shortest-path distance against GPS step distance, with a
+   speed- and gap-adaptive scale.
+6. **Confidence scoring** — per-trip High/Medium/Low label with a nearest-arc
+   fallback, so a bad decode never degrades the output below the trivial baseline.
 
 Distances use a per-trip local equirectangular projection to metres (the dataset spans
 Germany to Russia, so no single UTM zone applies).
+
+The core framework is Newson & Krumm (2009) HMM map matching with a learned emission
+model. The cleaning pipeline and confidence-scoring design are adapted from Zepto's
+[Route IQ](https://blog.zepto.com/route-iq-how-we-reconstruct-delivery-paths-from-noisy-gps-at-scale-6898d3260ed2)
+engineering blog (Aug 2026). Every addition beyond the base framework is reported with
+a measured on/off ablation — see `results/ablation.csv`.
 
 ## Setup
 
